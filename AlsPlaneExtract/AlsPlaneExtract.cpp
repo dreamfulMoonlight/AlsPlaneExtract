@@ -13,13 +13,7 @@
 #include <pcl/filters/radius_outlier_removal.h>
 #include<pcl/common/common.h>
 #include <pcl/filters/extract_indices.h>
-#include <opencv2/imgproc/imgproc.hpp>
-#include <opencv2/highgui/highgui.hpp>
 #include "lasreader.hpp"
-#include <opencv2/opencv_modules.hpp>
-#include <opencv2/line_descriptor.hpp>
-#include <opencv2/imgproc.hpp>
-#include <opencv2/features2d.hpp>
 #include <pcl/sample_consensus/method_types.h>
 #include <pcl/sample_consensus/model_types.h>
 #include <pcl/segmentation/sac_segmentation.h>
@@ -29,7 +23,6 @@
 
 using namespace std;
 using namespace cv;
-using namespace cv::line_descriptor;
 
 typedef pcl::PointXYZI ptype;
 typedef pcl::PointCloud<ptype>::Ptr ptrtype;
@@ -175,14 +168,19 @@ void cloudvisual2(ptrtype src, ptrtype tgt, const char* name)
 	//设置视窗的背景色，可以任意设置RGB的颜色，这里是设置为黑色
 	viewer.setBackgroundColor(0, 0, 0);
 	pcl::visualization::PointCloudColorHandlerCustom<ptype> target_color(tgt, 0, 255, 0);
+
+	int v1(0);
+	int v2(1);
+	viewer.createViewPort(0.0, 0.0, 0.5, 1.0, v1);
+	viewer.createViewPort(0.5, 0.0, 1.0, 1.0, v2);
 	//将点云添加到视窗对象中，并定一个唯一的字符串作为ID 号，利用此字符串保证在其他成员中也能标志引用该点云，多次调用addPointCloud可以实现多个点云的添加，每调用一次就会创建一个新的ID号，如果想更新一个已经显示的点云，先调用removePointCloud（），并提供需要更新的点云ID 号，也可使用updatePointCloud
-	viewer.addPointCloud<ptype>(tgt, target_color, "target cloud");
+	viewer.addPointCloud<ptype>(tgt, target_color, "target cloud",1);
 	//用于改变显示点云的尺寸，可以利用该方法控制点云在视窗中的显示方法,1设置显示点云大小
 	viewer.setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "target cloud");
 
 	pcl::visualization::PointCloudColorHandlerCustom<ptype> source_color(src, 255, 0, 0);
 	//将点云添加到视窗对象中，并定一个唯一的字符串作为ID 号，利用此字符串保证在其他成员中也能标志引用该点云，多次调用addPointCloud可以实现多个点云的添加，每调用一次就会创建一个新的ID号，如果想更新一个已经显示的点云，先调用removePointCloud（），并提供需要更新的点云ID 号，也可使用updatePointCloud
-	viewer.addPointCloud<ptype>(src, source_color, "source cloud");
+	viewer.addPointCloud<ptype>(src, source_color, "source cloud",2);
 	//用于改变显示点云的尺寸，可以利用该方法控制点云在视窗中的显示方法,1设置显示点云大小
 	viewer.setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "source cloud");
 
@@ -202,7 +200,7 @@ pcl::PointCloud<pcl::PointXYZI>::Ptr vegetfilter(const char* your_ALS_file_path)
 	lasreadopener_1.set_file_name(lasFile_1.c_str());
 	LASreader* lasreader_A = lasreadopener_1.open();
 	size_t count_1 = lasreader_A->header.number_of_point_records;
-	pcl::PointCloud<pcl::PointXYZI>::Ptr Als_cloud(new pcl::PointCloud<pcl::PointXYZI>);
+	pcl::PointCloud<pcl::PointXYZI>::Ptr als_cloud(new pcl::PointCloud<pcl::PointXYZI>);
 	long long i_1 = 0;
 	while (lasreader_A->read_point()) //&&lasreader_A->point.get_classification()==2)
 	{
@@ -214,21 +212,21 @@ pcl::PointCloud<pcl::PointXYZI>::Ptr vegetfilter(const char* your_ALS_file_path)
 			als_point.y = lasreader_A->point.get_y();
 			als_point.z = lasreader_A->point.get_z();
 			als_point.intensity = lasreader_A->point.get_intensity();
-			//Als_cloud->points[i_1].x = lasreader_A->point.get_x();
-			//Als_cloud->points[i_1].y = lasreader_A->point.get_y();
-			//Als_cloud->points[i_1].z = lasreader_A->point.get_z();
-			//Als_cloud->points[i_1].intensity = lasreader_A->point.get_intensity();
-			Als_cloud->points.push_back(als_point);
+			//als_cloud->points[i_1].x = lasreader_A->point.get_x();
+			//als_cloud->points[i_1].y = lasreader_A->point.get_y();
+			//als_cloud->points[i_1].z = lasreader_A->point.get_z();
+			//als_cloud->points[i_1].intensity = lasreader_A->point.get_intensity();
+			als_cloud->points.push_back(als_point);
 			++i_1;
 		}
 		
 	}
-	Als_cloud->resize(i_1);
-	Als_cloud->width = i_1;
-	Als_cloud->height = 1;
-	Als_cloud->is_dense = false;
+	als_cloud->resize(i_1);
+	als_cloud->width = i_1;
+	als_cloud->height = 1;
+	als_cloud->is_dense = false;
 	cout << "读取ALS点云数量:" << i_1 << endl;
-	return Als_cloud;
+	return als_cloud;
 }
 
 int main()
@@ -236,20 +234,32 @@ int main()
 
 	/**************     机载点云处理         ****************/
 	pcl::PointCloud<pcl::PointXYZI>::Ptr als_cloud(new pcl::PointCloud<pcl::PointXYZI>);
+	pcl::PointCloud<pcl::PointXYZI>::Ptr Acloud(new pcl::PointCloud<pcl::PointXYZI>);
 	///读取las文件///////
 	cout << "设置输入机载文件" << endl;
 	string in_als;
 	cin >> in_als;
 	string als_path = in_als + ".las";
 	const char* your_ALS_file_path = als_path.c_str();
-	als_cloud=vegetfilter(your_ALS_file_path);
+	Acloud=vegetfilter(your_ALS_file_path);
+	
+	
+	//半径滤波
+	pcl::RadiusOutlierRemoval<ptype> outrem;  //创建滤波器
+	outrem.setInputCloud(Acloud);    //设置输入点云
+	outrem.setRadiusSearch(1);     //设置半径为0.5的范围内找临近点
+	outrem.setMinNeighborsInRadius(10); //设置查询点的邻域点集数小于10的删除
+	outrem.setNegative(false);
+	// apply filter
+	outrem.filter(*als_cloud);     //执行条件滤波   在半径为0.8 在此半径内必须要有两个邻居点，此点才会保存
+	//std::cerr << "Cloud after filtering" << endl;
+	//std::cerr << mls_cloud->size() << endl;
 	cloudvisual(als_cloud, "滤波");
-	/*
 	///提取格网内部最高点云///////
 	//提取点云最值
 	pcl::PointXYZI min_als;
 	pcl::PointXYZI max_als;
-	pcl::getMinMax3D(*Als_cloud, min_als, max_als);
+	pcl::getMinMax3D(*als_cloud, min_als, max_als);
 	//输入格网间隔
 	float Agrid_distance;
 	cerr << "输入ALS格网间隔值:" << endl;
@@ -271,10 +281,10 @@ int main()
 	for (int i = 0; i < width_als; ++i)
 		voxel_2[i] = new flat_grid[height_als];
 	int row_als, col_als;
-	for (size_t i = 0; i < Als_cloud->points.size(); i++)
+	for (size_t i = 0; i < als_cloud->points.size(); i++)
 	{
-		row_als = int((Als_cloud->points[i].x - min_als.x) / Agrid_distance);
-		col_als = int((Als_cloud->points[i].y - min_als.y) / Agrid_distance);
+		row_als = int((als_cloud->points[i].x - min_als.x) / Agrid_distance);
+		col_als = int((als_cloud->points[i].y - min_als.y) / Agrid_distance);
 		voxel_2[row_als][col_als].indexID.push_back(i);
 		if (voxel_2[row_als][col_als].grayScale < 1)
 			voxel_2[row_als][col_als].grayScale++;
@@ -301,9 +311,9 @@ int main()
 				for (size_t k = 0; k < voxelPointCloudPtr->points.size(); k++)     //读取格网点云数据
 				{
 
-					voxelPointCloudPtr->points[k].x = Als_cloud->points[voxel_2[i][j].indexID[k]].x;
-					voxelPointCloudPtr->points[k].y = Als_cloud->points[voxel_2[i][j].indexID[k]].y;
-					voxelPointCloudPtr->points[k].z = Als_cloud->points[voxel_2[i][j].indexID[k]].z;
+					voxelPointCloudPtr->points[k].x = als_cloud->points[voxel_2[i][j].indexID[k]].x;
+					voxelPointCloudPtr->points[k].y = als_cloud->points[voxel_2[i][j].indexID[k]].y;
+					voxelPointCloudPtr->points[k].z = als_cloud->points[voxel_2[i][j].indexID[k]].z;
 				}
 				pcl::PointXYZI min;
 				pcl::PointXYZI max;
@@ -321,398 +331,18 @@ int main()
 	boost::shared_ptr<std::vector<int>> index_Aptr = boost::make_shared<std::vector<int>>(pointIndices_als);
 	pcl::ExtractIndices<pcl::PointXYZI> Aextract;
 	// Extract the inliers
-	Aextract.setInputCloud(Als_cloud);
+	Aextract.setInputCloud(als_cloud);
 	Aextract.setIndices(index_Aptr);
 	Aextract.setNegative(false);//如果设为true,可以提取指定index之外的点云
 	Aextract.filter(*Acloud_flitered);
 	cerr << "输出点云数量:" << Acloud_flitered->size() << endl;
-	// 进行半径滤波
-	// 创建滤波器，对每个点分析的临近点的个数设置为50 ，并将标准差的倍数设置为1  这意味着如果一
-	//个点的距离超出了平均距离一个标准差以上，则该点被标记为离群点，并将它移除，存储起来
-	pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_1(new pcl::PointCloud<pcl::PointXYZI>);
-	pcl::RadiusOutlierRemoval<pcl::PointXYZI> sor;   //创建滤波器对象
-	sor.setInputCloud(Acloud_flitered);                           //设置待滤波的点云
-	sor.setRadiusSearch(4);                               //设置在进行统计时考虑查询点临近点数
-	sor.setMinNeighborsInRadius(20); //设置查询点的邻域点集数小于2的删除
-	sor.setKeepOrganized(false);  //如果设置为true,原文件的滤除点会被置为nan
-	sor.filter(*cloud_1);                    //存储
-	std::cerr << "Cloud after filtering: " << std::endl;
-	std::cerr << cloud_1->size() << endl;
+	
 
-	pcl::visualization::PCLVisualizer viewer_1("视窗1");
-	viewer_1.setBackgroundColor(0, 0, 0);
+	cloudvisual(Acloud_flitered,"屋顶面提取");
 
-	pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZI>
-		target_Acolor(cloud_1, 205, 92, 92);
-
-	viewer_1.addPointCloud<pcl::PointXYZI>(cloud_1, target_Acolor, "1");//显示点云，其中fildColor为颜色显示
-
-	viewer_1.setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "1");//设置点云大小
-	while (!viewer_1.wasStopped())
-	{
-		viewer_1.spinOnce();
-	}
-	//////////栅格化///////////
-	pcl::PointXYZI min_p;  //用于存放三个轴最小值
-	pcl::PointXYZI max_p;
-	pcl::getMinMax3D(*cloud_1, min_p, max_p);
-	//构建二维平面格网
-	flat_grid **voxel_3 = new flat_grid*[width_als];
-	for (int i = 0; i < width_als; ++i)
-		voxel_3[i] = new flat_grid[height_als];
-	for (size_t i = 0; i < cloud_1->points.size(); i++)
-	{
-		float a = cloud_1->points[i].x;
-		float b = cloud_1->points[i].y;
-		row_als = int((cloud_1->points[i].x - min_als.x) / Agrid_distance);
-		col_als = int((cloud_1->points[i].y - min_als.y) / Agrid_distance);
-		voxel_3[row_als][col_als].indexID.push_back(i);
-		if (voxel_3[row_als][col_als].grayScale < 1)
-			voxel_3[row_als][col_als].grayScale++;
-	}
-	for (int i = 0; i < width_als; i++)
-	{
-		for (int j = 0; j < height_als; j++)
-		{
-			if (voxel_3[i][j].grayScale == 1)         //提取非空格网数
-			{
-				float max_height = -999.0;
-				for (int num = 0; num < voxel_3[i][j].indexID.size(); num++)
-				{
-					if (cloud_1->points[voxel_3[i][j].indexID[num]].z > max_height) max_height = cloud_1->points[voxel_3[i][j].indexID[num]].z;
-				}
-				// 提取格网最大高程值作为灰度（车载）
-				voxel_3[i][j].max_height = max_height;
-				// 提取格网高差作为灰度（机载） 
-				voxel_3[i][j].region_difheight = max_height - min_als.z;
-			}
-		}
-	}
-	// 机载点云灰度转换公式 float scale_trans = 255.0 / max_heightDiff;
-	// 车载点云灰度转换公式
-	float scale_Atrans = 255.0 / (max_als.z - min_als.z);
-	//写入Mat图像
-	Mat image_1(width_als, height_als, CV_8UC1, Scalar(0));
-	for (int i = 0; i < width_als; i++)  //image.at<uchar>(i,j)
-	{
-		uchar* data = image_1.ptr<uchar>(i);
-		for (int j = 0; j < height_als; j++)
-		{
-			if (voxel_3[i][j].grayScale != 0)
-			{
-				// 车载点云灰度赋值 
-				data[j] = uchar(voxel_3[i][j].region_difheight * scale_Atrans);
-				// 机载点云灰度赋值 data[j] = uchar((voxel_1[i][j].max_heightDiff) * scale_trans);
-			}
-		}
-	}
-
-	// Create and LSD detector with standard or no refinement.
-#if 1
-	Ptr<LineSegmentDetector> ls = createLineSegmentDetector(LSD_REFINE_STD);
-#else
-	Ptr<LineSegmentDetector> ls = createLineSegmentDetector(LSD_REFINE_NONE);
-#endif
-
-	double start = double(getTickCount());
-	vector<Vec4f> lines_std;
-	vector<Vec4f> lines_1;
-	ls->detect(image_1, lines_std);
-	//写入DSM影像
-	Mat AdsmImg(width_als, height_als, CV_8UC1, Scalar(0));
-	for (int i = 0; i < width_als; i++)  //image.at<uchar>(i,j)
-	{
-		uchar* data = AdsmImg.ptr<uchar>(i);
-		for (int j = 0; j < height_als; j++)
-		{
-			if (voxel_2[i][j].grayScale != 0)
-			{
-				// 车载点云灰度赋值 
-				data[j] = uchar(voxel_2[i][j].region_difheight * scale_Atrans);
-			}
-		}
-	}
-	imwrite("2.png", AdsmImg);
-	///////因为通常边界会画出两条线，舍弃端点值没有灰度的线
-	for (size_t i = 0; i < lines_std.size(); i++) {
-		Vec4f temp = lines_std[i];
-		int a = findmaxValue(image_1, int(temp[3]), int(temp[2]));
-		int b = findmaxValue(image_1, int(temp[1]), int(temp[0]));
-		//int a = image.at<uchar>(int(temp[3]), int(temp[2]));
-		//int b = image.at<uchar>(int(temp[1]), int(temp[0]));
-		if (a != 0 || b != 0) //&& fabs((a - b) / scale_Atrans) <= 10)
-		{
-			lines_1.push_back(temp);
-		}
-
-	}
-	vector<Point_vec> als_xyzline(lines_1.size());
-	for (size_t i = 0; i < lines_1.size(); i++)
-	{
-		Vec4f temp = lines_1[i];
-		int a = findmaxValue(image_1, int(temp[3]), int(temp[2]));
-		int b = findmaxValue(image_1, int(temp[1]), int(temp[0]));
-		float x_1 = int(temp[3]) * Agrid_distance + min_als.x;
-		float y_1 = int(temp[2]) * Agrid_distance + min_als.y;
-		float z_1 = a / scale_Atrans + min_als.z;
-		float x_2 = int(temp[1]) * Agrid_distance + min_als.x;
-		float y_2 = int(temp[0]) * Agrid_distance + min_als.y;
-		float z_2 = b / scale_Atrans + min_als.z;
-		float z = z_1 > z_2 ? z_1 : z_2;
-		if (x_1 < x_2)
-		{
-			als_xyzline[i].startpoint = pcl::PointXYZ(x_1, y_1, z);
-			als_xyzline[i].endpoint = pcl::PointXYZ(x_2, y_2, z);
-		}
-		else
-		{
-			als_xyzline[i].startpoint = pcl::PointXYZ(x_2, y_2, z);
-			als_xyzline[i].endpoint = pcl::PointXYZ(x_1, y_1, z);
-		}
-	}
-	//ls->drawSegments(image_1, lines_1);
-	//namedWindow("LSD", CV_WINDOW_AUTOSIZE);
-	//imshow("LSD", image_1);
-	// Show found lines
-	Mat AdsmImg_1(AdsmImg);
-	ls->drawSegments(AdsmImg_1, lines_1);
-	namedWindow("Adsm", CV_WINDOW_AUTOSIZE);
-	imshow("Adsm", AdsmImg_1);
 	for (int i = 0; i < width_als; ++i)
 		delete[] voxel_2[i];
 	delete[] voxel_2;
-	for (int i = 0; i < width_als; ++i)
-		delete[] voxel_3[i];
-	delete[] voxel_3;
-
-
-	//线特征匹配
-	vector<Vec6f>mls_lines, als_lines;
-	for (size_t i = 0; i < lines_2.size(); i++)    //lines_2代表提出的车载特征线
-	{
-		Vec4f temp = lines_2[i];
-		if (temp[1] > temp[3])
-		{
-			float x_start = int(temp[3]) * Mgrid_distance + min_mls.x;
-			float y_start = int(temp[2]) * Mgrid_distance + min_mls.y;
-			float x_end = int(temp[1]) * Mgrid_distance + min_mls.x;
-			float y_end = int(temp[0]) * Mgrid_distance + min_mls.y;
-			float angle = atan((y_end - y_start) / (x_end - x_start)) / 3.14 * 180.0;
-			float lineLength = sqrt((x_end - x_start) * (x_end - x_start) + (y_end - y_start) * (y_end - y_start));
-			Vec6f keyline(x_start, y_start, x_end, y_end, angle, lineLength);
-			mls_lines.push_back(keyline);
-		}
-		else
-		{
-			float x_start = int(temp[1]) * Mgrid_distance + min_mls.x;
-			float y_start = int(temp[0]) * Mgrid_distance + min_mls.y;
-			float x_end = int(temp[3]) * Mgrid_distance + min_mls.x;
-			float y_end = int(temp[2]) * Mgrid_distance + min_mls.y;
-			float angle = atan((y_end - y_start) / (x_end - x_start)) / 3.14 * 180.0;
-			float lineLength = sqrt((x_end - x_start) * (x_end - x_start) + (y_end - y_start) * (y_end - y_start));
-			Vec6f keyline(x_start, y_start, x_end, y_end, angle, lineLength);
-			mls_lines.push_back(keyline);
-		}
-	}
-	for (size_t i = 0; i < lines_1.size(); i++)   //lines_1代表提取出的机载特征线
-	{
-		Vec4f temp = lines_1[i];
-		if (temp[1] > temp[3])
-		{
-			float x_start = int(temp[3]) * Agrid_distance + min_als.x;
-			float y_start = int(temp[2]) * Agrid_distance + min_als.y;
-			float x_end = int(temp[1]) * Agrid_distance + min_als.x;
-			float y_end = int(temp[0]) * Agrid_distance + min_als.y;
-			float angle = atan((y_end - y_start) / (x_end - x_start)) / 3.14 * 180.0;
-			float lineLength = sqrt((x_end - x_start) * (x_end - x_start) + (y_end - y_start) * (y_end - y_start));
-			Vec6f keyline(x_start, y_start, x_end, y_end, angle, lineLength);
-			als_lines.push_back(keyline);
-		}
-		else
-		{
-			float x_start = int(temp[1]) * Agrid_distance + min_als.x;
-			float y_start = int(temp[0]) * Agrid_distance + min_als.y;
-			float x_end = int(temp[3]) * Agrid_distance + min_als.x;
-			float y_end = int(temp[2]) * Agrid_distance + min_als.y;
-			float angle = atan((y_end - y_start) / (x_end - x_start)) / 3.14 * 180.0;
-			float lineLength = sqrt((x_end - x_start) * (x_end - x_start) + (y_end - y_start) * (y_end - y_start));
-			Vec6f keyline(x_start, y_start, x_end, y_end, angle, lineLength);
-			als_lines.push_back(keyline);
-		}
-	}
-	///以车载点云特征线为基础寻找同名线对
-	vector<lines_combination> Mmatch(mls_lines.size());
-	for (size_t i = 0; i < mls_lines.size(); i++)
-	{
-		float mls_angle = mls_lines[i][4];
-		float mls_length = mls_lines[i][5];
-		for (int j = 0; j < als_lines.size(); j++)
-		{
-			if (abs(als_lines[j][4] - mls_angle) < 5)
-			{
-				float als_length = als_lines[j][5];
-				if ((mls_length / als_length) > 0.67 && (mls_length / als_length) < 1.5 && fabs(mls_lines[i][0] - als_lines[j][0]) < 100 && fabs(mls_lines[i][1] - als_lines[j][1]) < 100)
-				{
-					Vec2f temp;
-					temp[0] = mls_lines[i][0] - als_lines[j][0];
-					temp[1] = mls_lines[i][1] - als_lines[j][1];
-
-					Mmatch[i].als_index.push_back(j);
-					Mmatch[i].xy_drift.push_back(temp);
-				}
-			}
-		}
-
-	}
-	////寻找最佳的匹配组合
-	vector <int> vaild_index;
-	double num_match = 1;
-	for (int i = 0; i < mls_lines.size(); i++)
-	{
-		if (Mmatch[i].als_index.size() != 0)
-		{
-			num_match *= Mmatch[i].als_index.size();
-			vaild_index.push_back(i);
-		}
-	}
-
-	//构建一个有对应情况的存储数组
-	vector<lines_combination> Mmatch1(vaild_index.size());
-	for (int i = 0; i < vaild_index.size(); i++)
-	{
-		Mmatch1[i] = Mmatch[vaild_index[i]];
-	}
-	//每种组合的XY距离方差存储数组
-	//vector<Vec2f> lines_xydistance(num_match);
-	vector<float> lines_distance(num_match);
-	//遍历所有可能的排列情况
-	for (int nums = 0; nums < num_match; nums++)
-	{
-		int index_number = nums;
-		//将组合序号与组合情况对应起来，计算每种组合的距离方差
-		vector<int> corresepond_vec(vaild_index.size());
-		for (int i = vaild_index.size() - 1; i > 0; i--)
-		{
-			corresepond_vec[i] = index_number % Mmatch1[i].als_index.size();
-			index_number = int(index_number / Mmatch1[i].als_index.size());
-		}
-		corresepond_vec[0] = index_number;
-
-		//根据导出的特征线组合计算距离方差
-		float diff_distance = 0;
-		float diff_xdistance = 0;
-		float diff_ydistance = 0;
-		//计算XY距离平均值
-		float x_distance = 0;
-		float y_distance = 0;
-		for (int i = 0; i < corresepond_vec.size(); i++)
-		{
-			Vec2f tmep = Mmatch1[i].xy_drift[corresepond_vec[i]];
-			x_distance += tmep[0];
-			y_distance += tmep[1];
-		}
-		//计算偏移均值
-		float x_mean = x_distance / corresepond_vec.size();
-		float y_mean = y_distance / corresepond_vec.size();
-		//计算XY方向的方差
-		for (int i = 0; i < corresepond_vec.size(); i++)
-		{
-			Vec2f tmep = Mmatch1[i].xy_drift[corresepond_vec[i]];
-			diff_xdistance += pow((x_mean - tmep[0]), 2);
-			diff_ydistance += pow((y_mean - tmep[1]), 2);
-		}
-		diff_xdistance = diff_xdistance / corresepond_vec.size();
-		diff_ydistance = diff_ydistance / corresepond_vec.size();
-		diff_distance = sqrt(pow(diff_xdistance, 2) + pow(diff_ydistance, 2));
-		lines_distance[nums] = diff_distance;
-		//lines_xydistance[nums] = {diff_xdistance, diff_ydistance};
-	}
-
-	//从各种情况中找到距离方差最小的情况
-	auto min_distance = min_element(lines_distance.begin(), lines_distance.end());
-	int index_mindiff = distance(begin(lines_distance), min_distance);
-
-	//对求得的最小距离方差进行偏移量优化
-	int mindiffID = index_mindiff;
-	//将组合序号与组合情况对应起来，计算每种组合的距离方差
-	vector<int> mindiff_vec(vaild_index.size());
-	for (int i = vaild_index.size() - 1; i > 0; i--)
-	{
-		mindiff_vec[i] = mindiffID % Mmatch1[i].als_index.size();
-		mindiffID = int(mindiffID / Mmatch1[i].als_index.size());
-	}
-	mindiff_vec[0] = mindiffID;
-	//利用带权平差法迭代精化
-	float minx_distance = 0;
-	float miny_distance = 0;
-	for (int i = 0; i < mindiff_vec.size(); i++)
-	{
-		Vec2f tmep = Mmatch1[i].xy_drift[mindiff_vec[i]];
-		minx_distance += tmep[0];
-		miny_distance += tmep[1];
-	}
-	float x_mean = minx_distance / mindiff_vec.size();
-	float y_mean = miny_distance / mindiff_vec.size();
-	float xy_mean = sqrt(pow(x_mean, 2) + pow(y_mean, 2));
-	//计算XY方向的方差
-	//构建权矩阵
-	vector<float> weight(mindiff_vec.size());
-	vector<float> diff(mindiff_vec.size());
-	float diff_minxydistance = 0;
-	for (int i = 0; i < mindiff_vec.size(); i++)
-	{
-		Vec2f tmep = Mmatch1[i].xy_drift[mindiff_vec[i]];
-		diff[i] = 1.0 / (sqrt(pow(x_mean - tmep[0], 2) + pow(y_mean - tmep[1], 2)) + eps);
-		diff_minxydistance += diff[i];
-	}
-	for (int i = 0; i < mindiff_vec.size(); i++)
-	{
-		weight[i] = diff[i] / diff_minxydistance;
-	}
-	float x1_mean = 0;
-	float y1_mean = 0;
-	float xy1_mean = 0;
-	for (int i = 0; i < mindiff_vec.size(); i++)
-	{
-		x1_mean += weight[i] * Mmatch1[i].xy_drift[mindiff_vec[i]][0];
-		y1_mean += weight[i] * Mmatch1[i].xy_drift[mindiff_vec[i]][1];
-	}
-	x1_mean = x1_mean;
-	y1_mean = y1_mean;
-	xy1_mean = sqrt(pow(x1_mean, 2) + pow(y1_mean, 2));
-	//构建权矩阵
-	while (fabs(xy1_mean - xy_mean) > 0.1)
-	{
-		x_mean = x1_mean;
-		y_mean = y1_mean;
-		xy_mean = xy1_mean;
-		//计算XY方向的方差
-		float diff_minxydistance = 0;
-		for (int i = 0; i < mindiff_vec.size(); i++)
-		{
-			Vec2f tmep = Mmatch1[i].xy_drift[mindiff_vec[i]];
-			diff[i] = 1.0 / (sqrt(pow(x_mean - tmep[0], 2) + pow(y_mean - tmep[1], 2)) + eps);
-			diff_minxydistance += diff[i];
-		}
-		for (int i = 0; i < mindiff_vec.size(); i++)
-		{
-			weight[i] = diff[i] / diff_minxydistance;
-		}
-		float x1_mean = 0;
-		float y1_mean = 0;
-		for (int i = 0; i < mindiff_vec.size(); i++)
-		{
-			x1_mean += weight[i] * Mmatch1[i].xy_drift[mindiff_vec[i]][0];
-			y1_mean += weight[i] * Mmatch1[i].xy_drift[mindiff_vec[i]][1];
-		}
-		x1_mean = x1_mean;
-		y1_mean = y1_mean;
-		xy1_mean = sqrt(pow(x1_mean, 2) + pow(y1_mean, 2));
-	}
-	cout << "x方向上的偏移量：" << x1_mean << "Y方向上的偏移量：" << y1_mean << endl;
-
-	*/
-
 	
 	return (0);
 }
